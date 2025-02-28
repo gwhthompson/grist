@@ -1,26 +1,51 @@
-name: Publish image
-
+name: Build image
 on:
+  push:
+    branches:
+      - main
   schedule:
-    - cron: "0 * * * *"
+    - cron: "*/10 * * * *"
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Restore digest cache
+        id: cache_digest
+        uses: actions/cache@v4
+        with:
+          path: .last_digest
+          key: digest-${{ github.repository }}
+
+      - name: Fetch and compare upstream digest
+        id: digest
+        run: |
+          new=$(curl -s 'https://registry.hub.docker.com/v2/namespaces/gristlabs/repositories/grist/tags/stable' | jq -r '.digest')
+          stored=""
+          [ -f .last_digest ] && stored=$(cat .last_digest)
+          if [ "$stored" = "$new" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "$new" > .last_digest
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Log in to GHCR
-        uses: docker/login-action@v2
+        if: steps.digest.outputs.changed == 'true'
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v4
+        if: steps.digest.outputs.changed == 'true'
+        uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
+          pull: true
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          tags: ghcr.io/${{ github.repository }}:stable

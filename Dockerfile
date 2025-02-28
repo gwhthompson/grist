@@ -1,4 +1,4 @@
-FROM gristlabs/grist:latest
+FROM gristlabs/grist:stable
 
 RUN \
   apt update && apt install -y openssl && \
