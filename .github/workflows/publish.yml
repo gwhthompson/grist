@@ -1,4 +1,5 @@
 name: Build image
+
 on:
   push:
     branches:
@@ -8,6 +9,9 @@ on:
 
 jobs:
   build:
+    permissions:
+      packages: write
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,33 +23,28 @@ jobs:
           path: .last_digest
           key: digest-${{ github.repository }}
 
-      - name: Fetch and compare upstream digest
-        id: digest
+      - name: Check for updated digest
+        id: compare_digest
         run: |
           new=$(curl -s 'https://registry.hub.docker.com/v2/namespaces/gristlabs/repositories/grist/tags/stable' | jq -r '.digest')
           stored=""
           [ -f .last_digest ] && stored=$(cat .last_digest)
           if [ "$stored" = "$new" ]; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-            exit 0
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "$new" > .last_digest
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "new_digest=$new" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Log in to GHCR
-        if: steps.digest.outputs.changed == 'true'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push Docker image
-        if: steps.digest.outputs.changed == 'true'
+        if: steps.compare_digest.outputs.changed == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           pull: true
           push: true
           tags: ghcr.io/${{ github.repository }}:stable
+
+      - name: Update digest cache
+        if: steps.compare_digest.outputs.changed == 'true'
+        run: echo "${{ steps.compare_digest.outputs.new_digest }}" > .last_digest
