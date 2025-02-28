@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Restore digest cache
+        if: github.event_name != 'push'
         id: cache_digest
         uses: actions/cache@v4
         with:
@@ -62,5 +63,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - name: Update digest cache
-        if: steps.compare_digest.outputs.changed == 'true'
+        if: steps.compare_digest.outputs.changed == 'true' && github.event_name != 'push'
         run: echo "${{ steps.compare_digest.outputs.new_digest }}" > .last_digest
