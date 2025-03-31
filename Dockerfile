@@ -1,4 +1,4 @@
-FROM gristlabs/grist:stable
+FROM gristlabs/grist:1.4.2
 
 RUN apt-get update && apt-get install -y openssl ca-certificates && \
     python3 -m pip install sqids python-ulid && \
