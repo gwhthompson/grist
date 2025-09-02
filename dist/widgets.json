@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Notepad",
+    "url": "notepad",
+    "widgetId": "gwhthompson/widget-notepad"
+  },
+  {
+    "name": "Chat",
+    "url": "chat",
+    "widgetId": "gwhthompson/widget-chat"
+  }
+]
