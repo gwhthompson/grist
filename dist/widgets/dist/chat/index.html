@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" data-theme="grist-light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Content Editor</title>
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <script type="module" crossorigin src="../assets/index-CYWqSG92.js"></script>
+    <link rel="modulepreload" crossorigin href="../assets/modulepreload-polyfill-B5Qt9EMX.js">
+    <link rel="stylesheet" crossorigin href="../assets/index-ZxHwunVU.css">
+  </head>
+  <body class="flex h-full">
+    <div class="p-4 flex-1 flex flex-col place-content-between">
+      <div
+        id="chatContainer"
+        class="mb-4 overflow-y-auto scroll-smooth scroll-p-4 flex-1 place-content-end"
+      ></div>
+      <form id="contentForm" class="space-y-4">
+        <div class="form-control">
+          <textarea
+            class="textarea h-24 w-full"
+            id="contentInput"
+            placeholder="Enter your content here..."
+          ></textarea>
+        </div>
+        <div class="flex justify-end w-full">
+          <button type="submit" class="btn btn-primary">Add New</button>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>

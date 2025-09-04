@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Notepad",
+    "url": "./dist/notepad/index.html",
+    "widgetId": "gwhthompson/widget-notepad",
+    "authors": [
+      {
+        "name": "George Thompson",
+        "url": "https://github.com/gwhthompson"
+      }
+    ],
+    "lastUpdatedAt": "2025-09-04T13:13:55.187Z",
+    "accessLevel": "full",
+    "renderAfterReady": true,
+    "description": "A simple notepad widget for taking notes."
+  },
+  {
+    "name": "Chat",
+    "url": "./dist/chat/index.html",
+    "widgetId": "gwhthompson/widget-chat",
+    "authors": [
+      {
+        "name": "George Thompson",
+        "url": "https://github.com/gwhthompson"
+      }
+    ],
+    "lastUpdatedAt": "2025-09-04T13:13:55.188Z",
+    "accessLevel": "full",
+    "renderAfterReady": true,
+    "description": "Allows users to add comments to a record and chat with each other."
+  }
+]
