@@ -1,68 +1,93 @@
 name: Build image
 
+# Publishes ghcr.io/gwhthompson/grist:stable.
+# - Scheduled: only if gristlabs/grist:stable has moved - pins the new digest, publishes,
+#   then commits the pin. Otherwise nothing runs, so the server's 03:17 UTC pull is a no-op.
+# - Manual: publishes the chosen ref exactly as committed, e.g. to ship a change or roll
+#   back to an older pin. To hold a version, disable the schedule.
 on:
-  # push:
-  #   branches: [main]
-  # schedule:
-  #   - cron: "*/10 * * * *"
+  schedule:
+    - cron: "41 1 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# Queue, don't overlap: an older run finishing last would leave :stable behind the pin.
+concurrency:
+  group: publish-stable
+  cancel-in-progress: false
+
 jobs:
-  build:
-    permissions:
-      packages: write
-      contents: read
+  check:
     runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.base.outputs.digest }}
+      build: ${{ steps.base.outputs.build }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - name: Restore digest cache
-        if: github.event_name != 'push'
-        id: cache_digest
-        uses: actions/cache@v4
-        with:
-          path: .last_digest
-          key: digest-${{ github.repository }}
-
-      - name: Check for updated digest
-        id: compare_digest
+      - name: Compare pinned base with gristlabs/grist:stable
+        id: base
         run: |
-          new=$(curl -s 'https://registry.hub.docker.com/v2/namespaces/gristlabs/repositories/grist/tags/stable' | jq -r '.digest')
-          stored=""
-          [ -f .last_digest ] && stored=$(cat .last_digest)
-          if [ "$stored" = "$new" ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "new_digest=$new" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          digest=$(docker buildx imagetools inspect gristlabs/grist:stable --format '{{.Manifest.Digest}}')
+          pinned=$(sed -n 's|^FROM gristlabs/grist:stable@||p' Dockerfile)
+          echo "pinned:   $pinned"
+          echo "upstream: $digest"
+          if [[ ! $digest =~ ^sha256:[0-9a-f]{64}$ || -z $pinned ]]; then
+            echo "::error::Unexpected upstream digest, or no 'FROM gristlabs/grist:stable@' line"
+            exit 1
+          fi
+          if [ "$digest" != "$pinned" ]; then
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+            echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
+  build:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # commit the new pin
+      packages: write
+    env:
+      DIGEST: ${{ needs.check.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Pin the new gristlabs/grist:stable
+        if: github.event_name == 'schedule'
+        run: sed -i "s|^FROM gristlabs/grist:stable@.*|FROM gristlabs/grist:stable@$DIGEST|" Dockerfile
+
       - name: Log in to GitHub Container Registry
-        if: steps.compare_digest.outputs.changed == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        if: steps.compare_digest.outputs.changed == 'true'
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
-        if: steps.compare_digest.outputs.changed == 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and push Docker image
-        if: steps.compare_digest.outputs.changed == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
-          pull: true
           push: true
           tags: ghcr.io/${{ github.repository }}:stable
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
 
-      - name: Update digest cache
-        if: steps.compare_digest.outputs.changed == 'true' && github.event_name != 'push'
-        run: echo "${{ steps.compare_digest.outputs.new_digest }}" > .last_digest
+      # After the push, so a failed build is retried by the next run. Made with GITHUB_TOKEN,
+      # so it doesn't trigger build-testing.yml; :testing gets the new base on the next push.
+      - name: Commit the new pin
+        if: github.event_name == 'schedule'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Bump gristlabs/grist:stable to ${DIGEST:7:12}"
+          git pull --rebase
+          git push
