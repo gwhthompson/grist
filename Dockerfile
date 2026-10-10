@@ -1,6 +1,6 @@
 # Pinned by digest so builds are reproducible. The publish workflow's daily run bumps
 # this line when gristlabs/grist:stable moves.
-FROM gristlabs/grist:stable@sha256:c862d4c1ffa2a36009d69b72e7ab319155c3529da7df2de0a4e437e994cfe7f1
+FROM gristlabs/grist:stable@sha256:4ef5b69ab411de298d2f70571fdcb9a0b00af0d7135d61255e641c5eef70f991
 
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && \
     python3 -m pip install --no-cache-dir sqids python-ulid html2text policyengine-uk && \
